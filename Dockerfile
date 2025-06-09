@@ -4,6 +4,9 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+# Declare API_UPDATE_TOKEN environment variable.
+# This should be set during 'docker run' e.g., -e API_UPDATE_TOKEN="your_secret_token"
+ENV API_UPDATE_TOKEN=""
 
 # Set the working directory in the container
 WORKDIR /app

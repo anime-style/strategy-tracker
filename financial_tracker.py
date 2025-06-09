@@ -24,6 +24,7 @@ import logging
 import requests
 from bs4 import BeautifulSoup
 import re
+import io # For StringIO for pd.read_html
 
 # --- Setup Logging ---
 # Configures basic logging to file and console.
@@ -229,14 +230,17 @@ def get_mstr_btc_holdings_from_web() -> int | None:
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
 
     try:
-        logging.info(f"Attempting to fetch BTC holdings from {url}")
-        response = requests.get(url, headers=headers, timeout=10) # 10-second timeout
-        response.raise_for_status() # Will raise an HTTPError for bad responses (4XX or 5XX)
+        logging.info(f"Attempting to fetch data from {url}") # Generalizing log message
+        response = requests.get(url, headers=headers, timeout=15) # Increased timeout slightly for potentially larger page
+        response.raise_for_status()
         logging.info(f"Successfully fetched page content from {url}")
 
-        soup = BeautifulSoup(response.content, 'lxml') # Using lxml parser
+        soup = BeautifulSoup(response.content, 'lxml')
 
-        # Primary Strategy: Look for a specific div structure: <div class="value">NUMBER</div> <div class="label">BTC balance</div>
+        # --- Part 1: Scrape Current Total BTC Holdings (existing logic) ---
+        # This part remains largely the same to ensure the primary return value is preserved.
+        current_total_btc_holdings = None
+        # (Primary Strategy for current holdings - div.label/div.value pattern)
         # This structure was observed on similar pages.
         label_div = soup.find(lambda tag: tag.name == 'div' and 'label' in tag.get('class', []) and "BTC balance" in tag.get_text(strip=True))
 
@@ -306,24 +310,371 @@ def get_mstr_btc_holdings_from_web() -> int | None:
 
         if value_str:
             cleaned_value_str = value_str.replace(',', '')
-            if cleaned_value_str.isdigit(): # Final check that it's all digits
-                btc_amount = int(cleaned_value_str)
-                logging.info(f"Successfully parsed BTC holdings: {btc_amount}")
-                return btc_amount
+            if cleaned_value_str.isdigit():
+                current_total_btc_holdings = int(cleaned_value_str)
+                logging.info(f"Successfully parsed CURRENT TOTAL BTC holdings: {current_total_btc_holdings}")
             else:
-                logging.error(f"Extracted BTC holdings value '{cleaned_value_str}' is not a valid integer after cleaning.")
-                return None
+                logging.error(f"Extracted CURRENT TOTAL BTC holdings value '{cleaned_value_str}' is not a valid integer after cleaning.")
+                # Do not return yet; attempt table scraping even if this part fails.
         else:
-            logging.error("BTC holdings value string is empty or None after all search attempts.") # Should be caught earlier
-            return None
+            # This case should ideally be caught by earlier checks for value_str
+            logging.error("CURRENT TOTAL BTC holdings value string is empty or None after all search attempts.")
+            # Do not return yet.
 
-    except requests.exceptions.RequestException as e: # Handles network errors, timeouts, bad HTTP status
-        logging.error(f"RequestException while fetching BTC holdings from {url}: {e}", exc_info=True)
+        # --- Part 2: Scrape "Balance Sheet History" Table ---
+        df_balance_sheet = None
+        table_scraped_successfully = False
+
+        try:
+            logging.info("Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.")
+            match_regex = re.compile(r"Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)", re.IGNORECASE | re.DOTALL)
+            # Wrap response.text in io.StringIO for pd.read_html
+            tables = pd.read_html(io.StringIO(response.text), match=match_regex)
+
+            if tables:
+                logging.info(f"pd.read_html found {len(tables)} table(s) matching initial criteria.")
+                for i, table_candidate in enumerate(tables):
+                    logging.info(f"Inspecting table candidate {i} from pd.read_html. Columns: {table_candidate.columns.tolist()}, Shape: {table_candidate.shape}")
+                    if table_candidate.shape[0] > 5 and (4 < table_candidate.shape[1] < 8) :
+                        df_balance_sheet = table_candidate
+                        logging.info(f"Selected table candidate {i} from pd.read_html as potential Balance Sheet History table.")
+                        table_scraped_successfully = True
+                        break
+            else: # tables is empty or None
+                 logging.warning("pd.read_html did not find any tables matching the regex criteria.")
+
+        except ValueError as ve: # Specifically catch ValueError if pd.read_html finds no table matching regex
+            logging.warning(f"pd.read_html raised ValueError (no table found with match): {ve}. Will attempt manual parsing.")
+        except Exception as e_html: # Catch other potential errors from pd.read_html
+            logging.error(f"An unexpected error occurred during pd.read_html processing: {e_html}", exc_info=True)
+            logging.info("Will attempt manual BeautifulSoup parsing due to pd.read_html error.")
+
+        # Fallback or Primary: Manual BeautifulSoup Parsing
+        if not table_scraped_successfully:
+            try: # Encapsulate manual parsing attempt
+                logging.info("Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.")
+                html_table = None
+                # Strategy 1: Find header then table
+                history_header = soup.find(lambda tag: tag.name and tag.name.lower() in ['h2','h3','h4'] and 'Balance Sheet History' in tag.get_text(strip=True))
+                if history_header:
+                    logging.info(f"Found header for history table: '{history_header.get_text(strip=True)}'")
+                    # Try to find table as next sibling or in next sibling div
+                    candidate = history_header.find_next_sibling()
+                    while candidate and not html_table:
+                        if candidate.name == 'table':
+                            html_table = candidate
+                            break
+                        html_table = candidate.find('table') # Check if table is nested in a div
+                        if html_table:
+                            break
+                        candidate = candidate.find_next_sibling()
+
+                # Strategy 2: If header method fails, find table by column content
+                if not html_table:
+                    logging.warning("Could not find table via header proximity. Searching all tables for specific headers.")
+                    all_tables_on_page = soup.find_all('table')
+                    logging.info(f"Found {len(all_tables_on_page)} tables on page. Iterating to find the correct one...")
+                    for i, candidate_table in enumerate(all_tables_on_page):
+                        thead = candidate_table.find('thead')
+                        header_row = thead.find('tr') if thead else candidate_table.find('tr') # Fallback to first tr if no thead
+                        if header_row:
+                            header_texts = [cell.get_text(strip=True).lower() for cell in header_row.find_all(['th', 'td'])]
+                            # Check for presence of key headers
+                            if ("date" in header_texts and
+                                "btc balance" in header_texts and
+                                ("change cost basis" in header_texts or "change" in header_texts) and # allow for "Change" as well
+                                "market price" in header_texts):
+                                html_table = candidate_table
+                                logging.info(f"Found plausible history table (candidate {i}) by inspecting headers: {header_texts}")
+                                break
+                        if html_table: break # Found it
+
+                if html_table:
+                    logging.info("Found <table> element for Balance Sheet History via manual search.")
+                    table_data = []
+                    headers = []
+
+                    thead = html_table.find('thead')
+                    header_row_source = None
+                    if thead and thead.find('tr'):
+                        header_row_source = thead.find('tr')
+                        headers = [th.get_text(strip=True) for th in header_row_source.find_all('th')]
+                        logging.info(f"Parsed table headers from <thead>: {headers}")
+
+                    if not headers: # Fallback if no <thead> or no <th> in <thead>
+                        first_tr = html_table.find('tr')
+                        if first_tr:
+                            potential_headers = [cell.get_text(strip=True) for cell in first_tr.find_all(['th', 'td'])]
+                            # A simple heuristic: if it contains 'Date' and 'BTC Balance' (case insensitive)
+                            if any("date" in h.lower() for h in potential_headers) and \
+                               any("btc balance" in h.lower() for h in potential_headers):
+                                headers = potential_headers
+                                logging.info(f"Used first row as headers: {headers}")
+                                data_rows_start_index = 1 # Data rows start from the second tr
+                            else:
+                                data_rows_start_index = 0 # Assume first row is data
+                                logging.warning("Could not identify clear header row from first <tr>. Will use generic column names or rely on data structure.")
+                        else:
+                            logging.warning("No <tr> elements found in table to determine headers or data.")
+                            data_rows_start_index = 0
+                    else: # Headers found in <thead>
+                        data_rows_start_index = 0 # Data rows start from first <tr> in <tbody> or table
+
+                    tbody = html_table.find('tbody')
+                    all_trs = html_table.find_all('tr')
+                    rows_to_parse = tbody.find_all('tr') if tbody else all_trs[data_rows_start_index:]
+
+                    logging.info(f"Attempting to parse {len(rows_to_parse)} data rows from the table.")
+                    for row in rows_to_parse:
+                        cells = [cell.get_text(strip=True) for cell in row.find_all('td')]
+                        if cells: # Only add if there are data cells
+                            table_data.append(cells)
+
+                    if table_data:
+                        if headers:
+                             # Ensure number of headers matches number of columns in data, take minimum
+                            num_cols = len(table_data[0])
+                            df_balance_sheet = pd.DataFrame(table_data, columns=headers[:num_cols])
+                        else: # No headers identified, pandas will assign default 0, 1, ...
+                            df_balance_sheet = pd.DataFrame(table_data)
+                            logging.warning("Created DataFrame with generic integer column names as headers were not definitively parsed.")
+
+                        logging.info(f"Manual parsing created DataFrame with shape {df_balance_sheet.shape}")
+                        table_scraped_successfully = True
+                    else:
+                        logging.warning("Manual parsing: No data rows extracted from table.")
+                else:
+                    logging.warning("Manual parsing: Could not find the Balance Sheet History <table> element after all attempts.")
+            except Exception as e_manual_parse:
+                logging.error(f"Error during manual BeautifulSoup parsing of Balance Sheet History: {e_manual_parse}", exc_info=True)
+
+        # Universal Cleaning & Saving, only if a table was successfully scraped by either method
+        if table_scraped_successfully and df_balance_sheet is not None and not df_balance_sheet.empty:
+            logging.info(f"Proceeding with cleaning. Initial columns: {df_balance_sheet.columns.tolist()}")
+
+            rename_map = {}
+            for col in df_balance_sheet.columns: # Iterate over actual columns in the DataFrame
+                col_str = str(col).lower().replace('\n', ' ').strip()
+                if "date" == col_str: rename_map[col] = "Date"
+                elif "btc balance" == col_str: rename_map[col] = "BTC_Balance"
+                # Try to match "Change Cost Basis" or just "Change" if it's likely the BTC quantity change
+                elif "change cost basis" == col_str : rename_map[col] = "Change_Cost_Basis"
+                elif "change" == col_str and "cost basis" not in col_str : rename_map[col] = "BTC_Change"
+                elif "cost basis" == col_str and "change" not in col_str: rename_map[col] = "Total_Cost_Basis"
+                elif "market price" == col_str: rename_map[col] = "Market_Price_BTC"
+                elif "stock price" == col_str: rename_map[col] = "Stock_Price_MSTR"
+
+            df_balance_sheet = df_balance_sheet.rename(columns=rename_map)
+            logging.info(f"Attempted renaming. Columns now: {df_balance_sheet.columns.tolist()}")
+
+            desired_cols = ["Date", "BTC_Balance", "BTC_Change", "Total_Cost_Basis", "Change_Cost_Basis", "Market_Price_BTC", "Stock_Price_MSTR"]
+            cols_to_keep = [col for col in desired_cols if col in df_balance_sheet.columns]
+
+            if not cols_to_keep:
+                 logging.error("No standard columns found after renaming. Aborting table processing and saving.")
+            else:
+                df_balance_sheet = df_balance_sheet[cols_to_keep]
+                logging.info(f"Selected final columns for CSV: {df_balance_sheet.columns.tolist()}")
+
+                if "Date" in df_balance_sheet.columns:
+                    df_balance_sheet["Date"] = pd.to_datetime(df_balance_sheet["Date"], errors='coerce')
+                    df_balance_sheet.dropna(subset=['Date'], inplace=True)
+
+                numeric_cols = [col for col in df_balance_sheet.columns if col != 'Date']
+                for col in numeric_cols:
+                    df_balance_sheet[col] = df_balance_sheet[col].astype(str).str.replace(r'[$,+()]', '', regex=True)
+                    df_balance_sheet[col] = df_balance_sheet[col].replace(r'^(—|-|\s*)$', pd.NA, regex=True)
+                    df_balance_sheet[col] = pd.to_numeric(df_balance_sheet[col], errors='coerce')
+
+                if not df_balance_sheet.empty:
+                    csv_filename = "mstr_balance_sheet_history.csv"
+                    df_balance_sheet.to_csv(csv_filename, index=False)
+                    logging.info(f"Successfully cleaned and saved 'Balance Sheet History' to {csv_filename} with {len(df_balance_sheet)} rows and columns: {df_balance_sheet.columns.tolist()}.")
+                else:
+                    logging.warning("Balance sheet DataFrame is empty after cleaning. Not saving CSV.")
+        elif not table_scraped_successfully:
+            logging.warning("Failed to extract Balance Sheet History table by any method (pd.read_html or manual parsing).")
+
+        return current_total_btc_holdings
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"RequestException while fetching data from {url}: {e}", exc_info=True)
         return None
-    except Exception as e: # Catch-all for other unexpected errors (e.g., during parsing)
-        logging.error(f"An unexpected error occurred in get_mstr_btc_holdings_from_web: {e}", exc_info=True)
+    except Exception as e:
+        logging.error(f"An unexpected error occurred in get_mstr_btc_holdings_from_web function: {e}", exc_info=True)
         return None
 
+# --- Main Data Update Function ---
+def perform_daily_data_update() -> bool:
+    """
+    Performs the complete daily data fetching, processing, and logging sequence.
+
+    This function encapsulates the main logic previously found in the
+    `if __name__ == "__main__":` block. It fetches current and historical
+    financial data, calculates MNAV and IV, scrapes web data,
+    displays a summary report to console, and logs data to CSV files and a log file.
+
+    Returns:
+        bool: True if the process completes through all major steps, False otherwise
+              (though current implementation mostly logs errors and continues).
+              For now, it will return True if it reaches the end of its operations.
+    """
+    # Initialize report_data dictionary to store all fetched/calculated values for the summary
+    report_data = {
+        'script_run_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        'mstr_price': None, 'mstr_shares_outstanding': None,
+        'mstr_btc_holdings': None,
+        'mstr_btc_holdings_source': None,
+        'current_mnav': None, 'market_vs_mnav_percentage': None,
+        'avg_hist_mnav': None, 'current_mnav_vs_hist_avg_percentage': None,
+        'iv_data': None, # This will store the dictionary from get_near_atm_iv or None
+        'strk_price': None, 'strf_price': None, 'btc_price': None
+    }
+
+    # Logging script execution start is now handled by the caller if __name__ == "__main__"
+    # Or, if this function is called as a library, the caller handles that.
+
+    # --- Determine MSTR BTC Holdings (Dynamic or Fallback) ---
+    dynamic_btc_holdings = get_mstr_btc_holdings_from_web() # This function now also saves balance sheet history
+    current_mstr_btc_holdings = FALLBACK_MSTR_BTC_HOLDINGS # Default to fallback
+    using_fallback_btc_holdings = True
+
+    if dynamic_btc_holdings is not None and dynamic_btc_holdings > 0:
+        current_mstr_btc_holdings = dynamic_btc_holdings
+        using_fallback_btc_holdings = False
+        logging.info(f"Using dynamically fetched MSTR BTC holdings: {current_mstr_btc_holdings}")
+        report_data['mstr_btc_holdings_source'] = "dynamic"
+    else:
+        logging.warning(f"Failed to fetch dynamic BTC holdings or value was invalid ({dynamic_btc_holdings}). Using fallback placeholder: {current_mstr_btc_holdings}")
+        report_data['mstr_btc_holdings_source'] = "fallback_placeholder"
+
+    report_data['mstr_btc_holdings'] = current_mstr_btc_holdings
+
+    # --- Display BTC Holdings Info (User-facing console print) ---
+    print("\n--- Microstrategy Bitcoin Holdings ---")
+    if using_fallback_btc_holdings:
+        print(f"Warning: Using FALLBACK placeholder for MSTR BTC Holdings: {current_mstr_btc_holdings:,} BTC.")
+        print("         (Failed to fetch live data from bitcointreasuries.net or data was invalid)")
+    else:
+        print(f"Successfully fetched MSTR BTC Holdings from bitcointreasuries.net: {current_mstr_btc_holdings:,} BTC.")
+    print("Note: Always cross-verify this number with official Microstrategy announcements for critical decisions.\n")
+
+    # --- Fetch Current Prices for Tickers ---
+    tickers_to_fetch = ["MSTR", "STRK", "STRF", "BTC-USD", "INVALIDTICKERXYZ"]
+    current_prices_fetched = {}
+    for tick in tickers_to_fetch:
+        price = get_current_price(tick)
+        if price is not None:
+            current_prices_fetched[tick] = price
+
+    report_data['mstr_price'] = current_prices_fetched.get("MSTR")
+    report_data['strk_price'] = current_prices_fetched.get("STRK")
+    report_data['strf_price'] = current_prices_fetched.get("STRF")
+    report_data['btc_price'] = current_prices_fetched.get("BTC-USD")
+
+    if report_data['btc_price'] and report_data['btc_price'] > 80000:
+        print("Warning: The fetched BTC-USD price from yfinance seems unusually high. Cross-verify with other sources.\n")
+        logging.warning(f"High BTC-USD price detected: {report_data['btc_price']}")
+
+    # --- MSTR MNAV Calculation ---
+    mstr_current_price_for_calc = report_data['mstr_price']
+    btc_current_price_for_calc = report_data['btc_price']
+    mstr_shares_outstanding_val = get_shares_outstanding("MSTR")
+    report_data['mstr_shares_outstanding'] = mstr_shares_outstanding_val
+
+    current_mnav_val = None
+    if current_mstr_btc_holdings and btc_current_price_for_calc and mstr_shares_outstanding_val :
+        current_mnav_val = calculate_mstr_mnav(current_mstr_btc_holdings, btc_current_price_for_calc, mstr_shares_outstanding_val)
+        report_data['current_mnav'] = current_mnav_val
+        if mstr_current_price_for_calc and current_mnav_val and current_mnav_val > 0:
+            report_data['market_vs_mnav_percentage'] = ((mstr_current_price_for_calc / current_mnav_val) - 1) * 100
+    else:
+        logging.warning("Cannot calculate current MSTR MNAV due to missing critical data (BTC price, MSTR shares, or BTC holdings).")
+
+    # --- MSTR Historical MNAV Calculation ---
+    avg_hist_mnav_val = None
+    if mstr_shares_outstanding_val is None:
+        logging.warning("MSTR shares outstanding is None before historical MNAV calculation. Attempting re-fetch.")
+        mstr_shares_outstanding_val = get_shares_outstanding("MSTR")
+        if mstr_shares_outstanding_val is not None:
+            report_data['mstr_shares_outstanding'] = mstr_shares_outstanding_val
+        else:
+            logging.error("Failed to re-fetch MSTR shares outstanding. Historical MNAV calculation will be impacted.")
+
+    mstr_hist_df = get_historical_data("MSTR", period="1y")
+    btc_hist_df = get_historical_data("BTC-USD", period="1y")
+
+    if mstr_hist_df is not None and not mstr_hist_df.empty and \
+       btc_hist_df is not None and not btc_hist_df.empty and \
+       mstr_shares_outstanding_val is not None and mstr_shares_outstanding_val > 0:
+
+        if 'Close' in mstr_hist_df.columns and 'Close' in btc_hist_df.columns:
+            try:
+                mstr_hist_normalized = mstr_hist_df.copy()
+                mstr_hist_normalized.index = pd.to_datetime(mstr_hist_normalized.index, utc=True).normalize()
+                btc_hist_normalized = btc_hist_df.copy()
+                btc_hist_normalized.index = pd.to_datetime(btc_hist_normalized.index, utc=True).normalize()
+
+                merged_data_df = pd.merge(mstr_hist_normalized[['Close']], btc_hist_normalized[['Close']], left_index=True, right_index=True, suffixes=('_MSTR', '_BTC'))
+
+                if not merged_data_df.empty:
+                    merged_data_df['MNAV'] = (current_mstr_btc_holdings * merged_data_df['Close_BTC']) / mstr_shares_outstanding_val
+
+                    historical_mnav_csv_filename = "mstr_historical_mnav.csv"
+                    merged_data_df.to_csv(historical_mnav_csv_filename)
+                    logging.info(f"Saved historical MNAV data to {historical_mnav_csv_filename}")
+
+                    avg_hist_mnav_val = merged_data_df['MNAV'].mean()
+                    report_data['avg_hist_mnav'] = avg_hist_mnav_val
+
+                    if current_mnav_val and avg_hist_mnav_val and avg_hist_mnav_val > 0:
+                        report_data['current_mnav_vs_hist_avg_percentage'] = ((current_mnav_val / avg_hist_mnav_val) - 1) * 100
+                else:
+                    logging.warning("Could not merge MSTR and BTC historical data for historical MNAV calculation (no common dates).")
+            except Exception as e:
+                logging.error(f"Error during historical MNAV calculation or CSV saving: {e}", exc_info=True)
+        else:
+            logging.warning("'Close' column missing in MSTR or BTC historical data; cannot calculate historical MNAV.")
+    else:
+        logging.warning("Cannot calculate historical MNAV (missing MSTR/BTC historical data, or MSTR shares is zero/None).")
+
+    # --- MSTR Implied Volatility Fetching ---
+    if mstr_current_price_for_calc:
+        iv_data_dict = get_near_atm_iv("MSTR", mstr_current_price_for_calc)
+        report_data['iv_data'] = iv_data_dict
+    else:
+        logging.warning("Cannot fetch Implied Volatility for MSTR as its current price is unavailable.")
+        report_data['iv_data'] = None
+
+    # --- Display Summary Report (User-facing console output) ---
+    display_summary_report(report_data)
+
+    # --- Log Daily Metrics to CSV ---
+    daily_log_data_dict = {
+        'Date': report_data['script_run_time'],
+        'MSTR_Price': report_data['mstr_price'],
+        'MSTR_MNAV': report_data['current_mnav'],
+        'MSTR_IV_Call_Strike': report_data.get('iv_data', {}).get('atm_call_strike', 'N/A') if report_data.get('iv_data') else 'N/A',
+        'MSTR_IV_Call_IV': report_data.get('iv_data', {}).get('atm_call_iv', 'N/A') if report_data.get('iv_data') else 'N/A',
+        'MSTR_IV_Put_Strike': report_data.get('iv_data', {}).get('atm_put_strike', 'N/A') if report_data.get('iv_data') else 'N/A',
+        'MSTR_IV_Put_IV': report_data.get('iv_data', {}).get('atm_put_iv', 'N/A') if report_data.get('iv_data') else 'N/A',
+        'MSTR_IV_Expiration': report_data.get('iv_data', {}).get('selected_expiration_date', 'N/A') if report_data.get('iv_data') else 'N/A',
+        'STRK_Price': report_data['strk_price'],
+        'STRF_Price': report_data['strf_price'],
+        'BTC_Price': report_data['btc_price'],
+        'MSTR_Shares_Outstanding': report_data['mstr_shares_outstanding'],
+        'MSTR_BTC_Holdings': report_data['mstr_btc_holdings'],
+        'MSTR_BTC_Holdings_Source': report_data['mstr_btc_holdings_source']
+    }
+    for key, value in daily_log_data_dict.items():
+        if value is None:
+            daily_log_data_dict[key] = 'N/A'
+
+    log_daily_metrics(daily_log_data_dict)
+    print(f"\nDaily metrics also logged to daily_metrics_log.csv")
+
+    # End of main operational logic
+    return True # Indicate successful completion
 
 def display_summary_report(summary_data: dict) -> None:
     """
@@ -640,168 +991,18 @@ def get_near_atm_iv(ticker_symbol: str, current_stock_price: float | None) -> di
         return None
 
 if __name__ == "__main__":
-    # Initialize report_data dictionary to store all fetched/calculated values for the summary
-    report_data = {
-        'script_run_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'mstr_price': None, 'mstr_shares_outstanding': None,
-        'mstr_btc_holdings': None,
-        'mstr_btc_holdings_source': None,
-        'current_mnav': None, 'market_vs_mnav_percentage': None,
-        'avg_hist_mnav': None, 'current_mnav_vs_hist_avg_percentage': None,
-        'iv_data': None, # This will store the dictionary from get_near_atm_iv or None
-        'strk_price': None, 'strf_price': None, 'btc_price': None
-    }
+    # Logging is configured globally at the script start.
+    # This main block now orchestrates the data update process.
+    logging.info("Main execution block started: Calling perform_daily_data_update.")
 
-    logging.info(f"Script execution started.")
+    update_status = perform_daily_data_update()
 
-    # --- Determine MSTR BTC Holdings (Dynamic or Fallback) ---
-    dynamic_btc_holdings = get_mstr_btc_holdings_from_web()
-    current_mstr_btc_holdings = FALLBACK_MSTR_BTC_HOLDINGS # Default to fallback
-    using_fallback_btc_holdings = True
-
-    if dynamic_btc_holdings is not None and dynamic_btc_holdings > 0:
-        current_mstr_btc_holdings = dynamic_btc_holdings
-        using_fallback_btc_holdings = False
-        logging.info(f"Using dynamically fetched MSTR BTC holdings: {current_mstr_btc_holdings}")
-        report_data['mstr_btc_holdings_source'] = "dynamic"
+    if update_status:
+        logging.info("perform_daily_data_update completed successfully.")
+        # The function itself now handles the "Script Finished" type console messages.
+        # print("Data update process completed successfully.") # Optional console message
     else:
-        # This log covers cases where dynamic_btc_holdings is None or not positive
-        logging.warning(f"Failed to fetch dynamic BTC holdings or value was invalid ({dynamic_btc_holdings}). Using fallback placeholder: {current_mstr_btc_holdings}")
-        report_data['mstr_btc_holdings_source'] = "fallback_placeholder"
+        logging.error("perform_daily_data_update encountered an issue and did not complete all steps (see previous logs).")
+        # print("Data update process encountered errors.") # Optional console message
 
-    report_data['mstr_btc_holdings'] = current_mstr_btc_holdings # Store the holdings value used
-
-    # --- Display BTC Holdings Info (User-facing console print) ---
-    print("\n--- Microstrategy Bitcoin Holdings ---")
-    if using_fallback_btc_holdings:
-        print(f"Warning: Using FALLBACK placeholder for MSTR BTC Holdings: {current_mstr_btc_holdings:,} BTC.")
-        print("         (Failed to fetch live data from bitcointreasuries.net or data was invalid)")
-    else:
-        print(f"Successfully fetched MSTR BTC Holdings from bitcointreasuries.net: {current_mstr_btc_holdings:,} BTC.")
-    print("Note: Always cross-verify this number with official Microstrategy announcements for critical decisions.\n")
-
-    # --- Fetch Current Prices for Tickers ---
-    tickers_to_fetch = ["MSTR", "STRK", "STRF", "BTC-USD", "INVALIDTICKERXYZ"]
-    current_prices_fetched = {}
-    for tick in tickers_to_fetch:
-        price = get_current_price(tick) # Errors/warnings logged within the function
-        if price is not None:
-            current_prices_fetched[tick] = price
-
-    # Populate report_data with fetched prices
-    report_data['mstr_price'] = current_prices_fetched.get("MSTR")
-    report_data['strk_price'] = current_prices_fetched.get("STRK")
-    report_data['strf_price'] = current_prices_fetched.get("STRF")
-    report_data['btc_price'] = current_prices_fetched.get("BTC-USD")
-
-    # User-facing warning for high BTC price
-    if report_data['btc_price'] and report_data['btc_price'] > 80000:
-        print("Warning: The fetched BTC-USD price from yfinance seems unusually high. Cross-verify with other sources.\n")
-        logging.warning(f"High BTC-USD price detected: {report_data['btc_price']}")
-
-    # --- MSTR MNAV Calculation ---
-    mstr_current_price_for_calc = report_data['mstr_price']
-    btc_current_price_for_calc = report_data['btc_price']
-    mstr_shares_outstanding_val = get_shares_outstanding("MSTR") # Logs info/errors within
-    report_data['mstr_shares_outstanding'] = mstr_shares_outstanding_val
-
-    current_mnav_val = None # Ensure it's defined before use
-    if current_mstr_btc_holdings and btc_current_price_for_calc and mstr_shares_outstanding_val :
-        current_mnav_val = calculate_mstr_mnav(current_mstr_btc_holdings, btc_current_price_for_calc, mstr_shares_outstanding_val)
-        report_data['current_mnav'] = current_mnav_val
-        if mstr_current_price_for_calc and current_mnav_val and current_mnav_val > 0: # Avoid division by zero for percentage
-            report_data['market_vs_mnav_percentage'] = ((mstr_current_price_for_calc / current_mnav_val) - 1) * 100
-    else:
-        logging.warning("Cannot calculate current MSTR MNAV due to missing critical data (BTC price, MSTR shares, or BTC holdings).")
-
-    # --- MSTR Historical MNAV Calculation ---
-    avg_hist_mnav_val = None # Ensure it's defined
-    # Ensure shares are available for historical calculation; re-fetch if primary attempt failed
-    if mstr_shares_outstanding_val is None:
-        logging.warning("MSTR shares outstanding is None before historical MNAV calculation. Attempting re-fetch.")
-        mstr_shares_outstanding_val = get_shares_outstanding("MSTR")
-        if mstr_shares_outstanding_val is not None:
-            report_data['mstr_shares_outstanding'] = mstr_shares_outstanding_val # Update report_data if re-fetched
-        else:
-            logging.error("Failed to re-fetch MSTR shares outstanding. Historical MNAV calculation will be impacted.")
-
-    mstr_hist_df = get_historical_data("MSTR", period="1y") # Fetches or returns empty DataFrame
-    btc_hist_df = get_historical_data("BTC-USD", period="1y")
-
-    if mstr_hist_df is not None and not mstr_hist_df.empty and \
-       btc_hist_df is not None and not btc_hist_df.empty and \
-       mstr_shares_outstanding_val is not None and mstr_shares_outstanding_val > 0:
-
-        if 'Close' in mstr_hist_df.columns and 'Close' in btc_hist_df.columns:
-            try:
-                # Normalize indices to UTC date (no time) for robust merging
-                mstr_hist_normalized = mstr_hist_df.copy()
-                mstr_hist_normalized.index = pd.to_datetime(mstr_hist_normalized.index, utc=True).normalize()
-                btc_hist_normalized = btc_hist_df.copy()
-                btc_hist_normalized.index = pd.to_datetime(btc_hist_normalized.index, utc=True).normalize()
-
-                merged_data_df = pd.merge(mstr_hist_normalized[['Close']], btc_hist_normalized[['Close']], left_index=True, right_index=True, suffixes=('_MSTR', '_BTC'))
-
-                if not merged_data_df.empty:
-                    merged_data_df['MNAV'] = (current_mstr_btc_holdings * merged_data_df['Close_BTC']) / mstr_shares_outstanding_val
-
-                    # Save historical MNAV data to CSV
-                    historical_mnav_csv_filename = "mstr_historical_mnav.csv"
-                    merged_data_df.to_csv(historical_mnav_csv_filename)
-                    logging.info(f"Saved historical MNAV data to {historical_mnav_csv_filename}")
-
-                    avg_hist_mnav_val = merged_data_df['MNAV'].mean()
-                    report_data['avg_hist_mnav'] = avg_hist_mnav_val
-
-                    # Calculate current MNAV vs historical average MNAV percentage
-                    if current_mnav_val and avg_hist_mnav_val and avg_hist_mnav_val > 0: # Avoid division by zero
-                        report_data['current_mnav_vs_hist_avg_percentage'] = ((current_mnav_val / avg_hist_mnav_val) - 1) * 100
-                else:
-                    logging.warning("Could not merge MSTR and BTC historical data for historical MNAV calculation (no common dates).")
-            except Exception as e:
-                logging.error(f"Error during historical MNAV calculation or CSV saving: {e}", exc_info=True)
-        else:
-            logging.warning("'Close' column missing in MSTR or BTC historical data; cannot calculate historical MNAV.")
-    else:
-        logging.warning("Cannot calculate historical MNAV (missing MSTR/BTC historical data, or MSTR shares is zero/None).")
-
-    # --- MSTR Implied Volatility Fetching ---
-    if mstr_current_price_for_calc: # Ensure MSTR price is available
-        iv_data_dict = get_near_atm_iv("MSTR", mstr_current_price_for_calc) # Returns a dict or None
-        report_data['iv_data'] = iv_data_dict
-    else:
-        logging.warning("Cannot fetch Implied Volatility for MSTR as its current price is unavailable.")
-        report_data['iv_data'] = None # Ensure it's explicitly None if not fetched
-
-    # --- Display Summary Report (User-facing console output) ---
-    display_summary_report(report_data)
-
-    # --- Log Daily Metrics to CSV ---
-    # Prepare data for CSV logging, primarily from report_data
-    daily_log_data_dict = {
-        'Date': report_data['script_run_time'],
-        'MSTR_Price': report_data['mstr_price'],
-        'MSTR_MNAV': report_data['current_mnav'],
-        # Safely access IV data, defaulting to 'N/A' if iv_data or its keys are missing
-        'MSTR_IV_Call_Strike': report_data.get('iv_data', {}).get('atm_call_strike', 'N/A') if report_data.get('iv_data') else 'N/A',
-        'MSTR_IV_Call_IV': report_data.get('iv_data', {}).get('atm_call_iv', 'N/A') if report_data.get('iv_data') else 'N/A',
-        'MSTR_IV_Put_Strike': report_data.get('iv_data', {}).get('atm_put_strike', 'N/A') if report_data.get('iv_data') else 'N/A',
-        'MSTR_IV_Put_IV': report_data.get('iv_data', {}).get('atm_put_iv', 'N/A') if report_data.get('iv_data') else 'N/A',
-        'MSTR_IV_Expiration': report_data.get('iv_data', {}).get('selected_expiration_date', 'N/A') if report_data.get('iv_data') else 'N/A',
-        'STRK_Price': report_data['strk_price'],
-        'STRF_Price': report_data['strf_price'],
-        'BTC_Price': report_data['btc_price'],
-        'MSTR_Shares_Outstanding': report_data['mstr_shares_outstanding'],
-        'MSTR_BTC_Holdings': report_data['mstr_btc_holdings'],
-        'MSTR_BTC_Holdings_Source': report_data['mstr_btc_holdings_source']
-    }
-    # Ensure any None values become 'N/A' for CSV consistency
-    for key, value in daily_log_data_dict.items():
-        if value is None:
-            daily_log_data_dict[key] = 'N/A'
-
-    log_daily_metrics(daily_log_data_dict)
-    print(f"\nDaily metrics also logged to daily_metrics_log.csv")
-
-    print("\n--- Script Finished ---")
-    logging.info("Script execution finished.")
+    # The "Script Finished" log message is now part of perform_daily_data_update

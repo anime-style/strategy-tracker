@@ -18,6 +18,30 @@ from dash import Dash, dcc, html, Input, Output
 import pandas as pd
 import logging # For logging errors in data loading and app operations
 import plotly.graph_objects as go
+from flask import request, jsonify # For API endpoint
+import os # For environment variables
+
+# --- Module-Level Logging Configuration for app.py ---
+# This ensures logging is active even if app.py is run by a WSGI server (not via if __name__ == '__main__')
+# and financial_tracker.py (which also has basicConfig) hasn't configured the root logger first in this process.
+# If financial_tracker.py's logging is already active for the root logger, this won't have ill effects
+# due to basicConfig's default behavior of only configuring if no handlers are attached to root.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    # filename='app.log', # Consider separate log file for app-specific logs vs financial_tracker.log
+    # force=True # Use with caution if needing to override other basicConfigs, usually not needed.
+)
+
+# Attempt to import the data update function from financial_tracker.py
+try:
+    from financial_tracker import perform_daily_data_update
+    logging.info("Successfully imported perform_daily_data_update from financial_tracker.py")
+except ImportError as e:
+    logging.critical(f"CRITICAL ERROR: Failed to import perform_daily_data_update from financial_tracker.py: {e}. API endpoint will not function.")
+    perform_daily_data_update = None # Define as None if import fails
+
 
 # Note: For older Dash versions, imports might be:
 # import dash_core_components as dcc
@@ -104,7 +128,48 @@ def calculate_bollinger_bands(data_series: pd.Series, window: int = 20, num_std_
 # __name__ is a special Python variable that gives the name of the current module.
 # Dash uses this to know where to find assets if you have a local 'assets' folder.
 app = Dash(__name__)
-server = app.server # Expose Flask server instance for potential WSGI deployment
+server = app.server # Expose Flask server instance for API endpoint and potential WSGI deployment
+
+
+# --- API Endpoint for Triggering Data Update ---
+@server.route('/api/update-data', methods=['POST'])
+def api_update_data():
+    """
+    API endpoint to trigger the data update process (financial_tracker.py logic).
+    Requires an API token for authorization, passed in the 'X-API-Token' header.
+    The expected token should be set in the 'API_UPDATE_TOKEN' environment variable.
+    """
+    EXPECTED_API_TOKEN = os.environ.get('API_UPDATE_TOKEN')
+
+    if not EXPECTED_API_TOKEN:
+        logging.error("SERVER CONFIG ERROR: API_UPDATE_TOKEN environment variable is not set. Cannot process update requests.")
+        return jsonify({"error": "Server configuration error: API token not set."}), 500
+
+    auth_token = request.headers.get('X-API-Token')
+
+    if not auth_token or auth_token != EXPECTED_API_TOKEN:
+        logging.warning(f"Unauthorized API access attempt to /api/update-data. Provided token: '{auth_token}'")
+        return jsonify({"error": "Unauthorized: Invalid or missing API token."}), 401
+
+    if perform_daily_data_update is None:
+        logging.error("SERVER ERROR: perform_daily_data_update function not available (import failed). API endpoint cannot function.")
+        return jsonify({"error": "Server error: Update function not available. Check server logs."}), 500
+
+    try:
+        logging.info("Authenticated API call received for /api/update-data. Attempting data update process.")
+        # Assuming perform_daily_data_update() returns True for success, False for failure
+        update_successful = perform_daily_data_update()
+
+        if update_successful:
+            logging.info("Data update process successful via API call.")
+            return '', 204  # Success, No Content
+        else:
+            logging.error("Data update process failed via API call (perform_daily_data_update returned False or an equivalent failure indication).")
+            # It might be good if perform_daily_data_update could return error details
+            return jsonify({"error": "Data update process failed. Check server logs for specific errors."}), 400 # Changed to 400 as it's a process failure
+    except Exception as e:
+        logging.exception("Unhandled exception during API-triggered data update:") # Logs full traceback
+        return jsonify({"error": f"An unexpected error occurred during data update: {str(e)}"}), 500
 
 # Define the layout of the application
 # The layout is composed of a tree of Dash Components (like html.Div, dcc.Graph, etc.).
@@ -289,17 +354,11 @@ def update_all_charts(initial_trigger_data) -> tuple[go.Figure, go.Figure, go.Fi
 # Main execution block to run the Dash development server
 # The server will typically be accessible at http://127.0.0.1:8050/
 if __name__ == '__main__':
-    # Configure logging for the Dash app if it's not already configured by another script (e.g. financial_tracker.py)
-    # This ensures that if app.py is run standalone, its logs are captured.
-    if not logging.getLogger().hasHandlers(): # Check if root logger already has handlers
-        logging.basicConfig(
-            level=logging.INFO, # Set desired logging level
-            format='%(asctime)s - %(levelname)s - %(module)s - %(funcName)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S',
-            # filename='app.log' # Optionally log to a separate file like 'app.log'
-                                 # If not specified, logs go to stderr by default.
-                                 # If financial_tracker.py set up a file handler, this might use it too.
-        )
+    # Logging is now configured at the module level.
+    # The conditional basicConfig here is removed to avoid potential conflicts if this script
+    # is imported elsewhere after financial_tracker.py has already set up logging.
+    # The module-level basicConfig at the top of this file will be the primary one for app.py.
+
     # debug=True enables hot-reloading and error messages in the browser.
     # Should be set to False in a production environment.
     # host='0.0.0.0' makes the server accessible externally (e.g., from Docker).
