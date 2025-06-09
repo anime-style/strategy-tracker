@@ -117,3 +117,25 @@ def save_kpi_data_to_csv(data_dict):
         logging.error(f"Error writing to CSV file {CSV_FILENAME}: {e}")
     except Exception as e:
         logging.error(f"An unexpected error occurred during CSV writing: {e}")
+
+async def fetch_and_save_kpi_data_job():
+    """
+    Scheduled job to fetch consolidated KPI data and save it to a CSV file.
+    This function is intended to be called by a scheduler (e.g., APScheduler).
+    It calls synchronous functions get_consolidated_kpi_data and save_kpi_data_to_csv.
+    """
+    logging.info("Scheduled job 'fetch_and_save_kpi_data_job' started.")
+    try:
+        # Call the synchronous function to get data.
+        # If using AsyncIOScheduler, it will run this in a thread pool.
+        data = get_consolidated_kpi_data()
+
+        if data:
+            # Call the synchronous function to save data.
+            save_kpi_data_to_csv(data)
+            logging.info("Scheduled job 'fetch_and_save_kpi_data_job' completed successfully.")
+        else:
+            logging.warning("Scheduled job 'fetch_and_save_kpi_data_job': No data returned by get_consolidated_kpi_data. Nothing to save.")
+
+    except Exception as e:
+        logging.exception("Scheduled job 'fetch_and_save_kpi_data_job' failed.")
