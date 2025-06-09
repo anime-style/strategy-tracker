@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Python virtual environment
+.venv
+venv
+env
+
+# Python bytecode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Log files
+*.log
+
+# CSV data files (should be generated inside the container)
+*.csv
+
+# Docker specific files (optional, but good practice)
+Dockerfile
+.dockerignore
+
+# IDE / Editor specific
+.idea
+.vscode

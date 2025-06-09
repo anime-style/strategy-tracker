@@ -302,4 +302,5 @@ if __name__ == '__main__':
         )
     # debug=True enables hot-reloading and error messages in the browser.
     # Should be set to False in a production environment.
-    app.run(debug=True)
+    # host='0.0.0.0' makes the server accessible externally (e.g., from Docker).
+    app.run(debug=True, host='0.0.0.0', port=8050)
