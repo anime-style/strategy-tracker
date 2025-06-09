@@ -32,9 +32,105 @@ except ImportError as e:
     logging.critical(f"CRITICAL ERROR: Failed to import perform_daily_data_update from financial_tracker.py: {e}. API endpoint will not function correctly.")
     perform_daily_data_update = None
 
+# Import KPI fetching and saving functions
+try:
+    from metrics_fetcher import get_consolidated_kpi_data, save_kpi_data_to_csv
+    logging.info("Successfully imported KPI functions from metrics_fetcher.py")
+except ImportError as e:
+    logging.critical(f"CRITICAL ERROR: Failed to import from metrics_fetcher.py: {e}. KPI endpoint will not function correctly.")
+    get_consolidated_kpi_data = None
+    save_kpi_data_to_csv = None
+
+# Import for APScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+try:
+    from metrics_fetcher import fetch_and_save_kpi_data_job
+    logging.info("Successfully imported fetch_and_save_kpi_data_job from metrics_fetcher.py for scheduling.")
+except ImportError as e:
+    logging.critical(f"CRITICAL ERROR: Failed to import fetch_and_save_kpi_data_job from metrics_fetcher.py: {e}. Scheduled job will not be configured.")
+    fetch_and_save_kpi_data_job = None
+
+from datetime import datetime, timedelta, timezone # For scheduler job run_date
+
+# Initialize the scheduler instance
+scheduler = AsyncIOScheduler()
 
 # Initialize FastAPI app
 app_fastapi = FastAPI(title="Financial Metrics API & Dashboard")
+
+# --- Scheduler Lifecycle Events ---
+@app_fastapi.on_event("startup")
+async def start_scheduler():
+    if N_HOURLY_FETCH > 0 and fetch_and_save_kpi_data_job is not None:
+        logging.info(f"Configuring and starting APScheduler to run job every {N_HOURLY_FETCH} hours.")
+        try:
+            # Schedule the job to run at intervals
+            scheduler.add_job(
+                fetch_and_save_kpi_data_job,
+                'interval',
+                hours=N_HOURLY_FETCH,
+                id="interval_kpi_fetch_job",
+                replace_existing=True
+            )
+            # Schedule the job to run once shortly after startup
+            # This ensures data is fetched soon after deployment/restart
+            scheduler.add_job(
+                fetch_and_save_kpi_data_job,
+                trigger='date', # Specifies a single run
+                run_date=datetime.now(timezone.utc) + timedelta(seconds=10), # Run 10 seconds from now
+                id="startup_kpi_fetch_job",
+                replace_existing=True
+            )
+            scheduler.start()
+            logging.info("APScheduler started successfully with KPI data fetch job.")
+        except Exception as e:
+            logging.exception(f"Error starting APScheduler or adding jobs: {e}")
+    else:
+        if fetch_and_save_kpi_data_job is None:
+            logging.warning("Scheduler not starting because fetch_and_save_kpi_data_job could not be imported.")
+        else:
+            logging.info(f"Scheduler not starting due to N_HOURLY_FETCH configuration (value: {N_HOURLY_FETCH}).")
+
+@app_fastapi.on_event("shutdown")
+async def shutdown_scheduler():
+    if scheduler.running:
+        logging.info("APScheduler is running. Attempting to shut down.")
+        try:
+            scheduler.shutdown()
+            logging.info("APScheduler shut down successfully.")
+        except Exception as e:
+            logging.exception(f"Error shutting down APScheduler: {e}")
+    else:
+        logging.info("APScheduler was not running. No shutdown needed.")
+
+
+# --- Scheduler Configuration ---
+# Read N_HOURLY_FETCH environment variable to configure scheduler
+N_HOURLY_FETCH_STR = os.environ.get('N_HOURLY_FETCH')
+N_HOURLY_FETCH = -1  # Default to -1 (do not run scheduler)
+
+if N_HOURLY_FETCH_STR:
+    try:
+        N_HOURLY_FETCH = int(N_HOURLY_FETCH_STR)
+        if N_HOURLY_FETCH == 0: # Treat 0 as "do not run" similar to -1 or invalid
+            N_HOURLY_FETCH = -1
+            logging.info("N_HOURLY_FETCH environment variable is 0, scheduler will not run.")
+        elif N_HOURLY_FETCH < -1: # Treat any other negative as "do not run"
+            N_HOURLY_FETCH = -1
+            logging.info(f"N_HOURLY_FETCH environment variable is {N_HOURLY_FETCH_STR} (negative, not -1), scheduler will not run.")
+        elif N_HOURLY_FETCH > 0:
+            logging.info(f"N_HOURLY_FETCH set to {N_HOURLY_FETCH} hours. Scheduler will be configured.")
+        # If N_HOURLY_FETCH remains -1 (from default or explicit -1 value passed in env), it means don't run.
+        # An explicit value of -1 in env means "do not run".
+        elif N_HOURLY_FETCH == -1:
+             logging.info("N_HOURLY_FETCH environment variable is -1, scheduler will not run.")
+
+    except ValueError:
+        logging.warning(f"Invalid value for N_HOURLY_FETCH: '{N_HOURLY_FETCH_STR}'. Must be an integer. Scheduler will not run.")
+        N_HOURLY_FETCH = -1 # Ensure it's -1 on error
+else:
+    logging.info("N_HOURLY_FETCH environment variable not set. Scheduler will not run.")
+
 
 # --- API Endpoint Definition ---
 @app_fastapi.post("/api/update-data", status_code=204)
@@ -76,6 +172,55 @@ async def api_trigger_update_data(request: Request):
     except Exception as e:
         logging.exception("Unhandled exception during API-triggered data update (FastAPI):")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred during data update: {str(e)}")
+
+# --- New KPI Endpoint ---
+@app_fastapi.get("/api/consolidated-kpi")
+async def get_consolidated_kpi():
+    """
+    Provides consolidated KPI data.
+    Fetches data using get_consolidated_kpi_data, saves it to CSV, and returns the data.
+    """
+    logging.info("Endpoint /api/consolidated-kpi execution started.")
+
+    if not get_consolidated_kpi_data or not save_kpi_data_to_csv:
+        logging.error("SERVER ERROR: KPI functions (get_consolidated_kpi_data or save_kpi_data_to_csv) not available due to import failure.")
+        raise HTTPException(status_code=500, detail="Server error: KPI processing functions are not available. Check server logs.")
+
+    try:
+        # 1. Fetch KPI data
+        kpi_data = get_consolidated_kpi_data() # This is a synchronous function
+
+        # 2. Check for errors during fetching (already logged by metrics_fetcher)
+        if not kpi_data: # Should not happen if get_consolidated_kpi_data always returns a dict
+            logging.error("get_consolidated_kpi_data returned None or empty. This should not happen.")
+            # Still attempt to save, as save_kpi_data_to_csv handles empty dicts.
+            # And return an appropriate response.
+            kpi_data = {"error": "Failed to fetch any KPI data or data was empty."} # Ensure kpi_data is a dict
+
+        if "mstr_kpi_error" in kpi_data or "bitcoin_kpi_error" in kpi_data:
+            logging.warning(f"Fetched KPI data contains error indicators: MSTR error: {kpi_data.get('mstr_kpi_error')}, Bitcoin error: {kpi_data.get('bitcoin_kpi_error')}")
+            # Proceed to save and return whatever was fetched
+
+        # 3. Save data to CSV
+        try:
+            # save_kpi_data_to_csv is synchronous
+            save_kpi_data_to_csv(kpi_data)
+            logging.info("Successfully attempted to save KPI data to CSV.")
+        except Exception as csve:
+            # Log the error but don't let it stop the API from returning fetched data
+            logging.exception(f"Error saving KPI data to CSV: {csve}")
+            # Optionally, add a note to the response:
+            # kpi_data["csv_save_error"] = str(csve) # This would alter the response based on save status.
+                                                 # For now, requirement is to return fetched data regardless.
+
+        logging.info("Endpoint /api/consolidated-kpi execution finished successfully.")
+        return kpi_data # FastAPI serializes dict to JSON
+
+    except HTTPException:
+        raise # Re-raise HTTPException directly if it's one we've thrown (like the 500 for import issues)
+    except Exception as e:
+        logging.exception("Unhandled exception in /api/consolidated-kpi endpoint:")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred while processing KPI data: {str(e)}")
 
 # --- Mount Dash App ---
 # This makes the Dash app accessible under the FastAPI application.
