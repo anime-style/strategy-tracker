@@ -26,7 +26,7 @@ def get_consolidated_kpi_data():
     try:
         response_mstr = requests.get(MSTR_KPI_URL)
         response_mstr.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
-        mstr_kpi_data = response_mstr.json()
+        mstr_kpi_data = response_mstr.json()[0] # api results in a list of a single json
         consolidated_data.update(mstr_kpi_data)
         logging.info(f"Successfully fetched MSTR KPI data from {MSTR_KPI_URL}")
     except requests.exceptions.RequestException as e:
@@ -40,7 +40,7 @@ def get_consolidated_kpi_data():
     try:
         response_bitcoin = requests.get(BITCOIN_KPI_URL)
         response_bitcoin.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
-        bitcoin_kpi_data = response_bitcoin.json()
+        bitcoin_kpi_data = response_bitcoin.json()["results"]
         # Simple update; if key clashes occur, Bitcoin data will overwrite MSTR data for that key.
         # Consider prefixing keys if necessary, e.g., {'bitcoin_marketCap': value}
         consolidated_data.update(bitcoin_kpi_data)

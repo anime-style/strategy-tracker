@@ -471,3 +471,467 @@ ValueError: No tables found matching pattern 'Date.*BTC Balance.*(Change|Change 
 2025-06-09 01:34:14 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654 (attempt 1)
 2025-06-09 01:34:14 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
 2025-06-09 01:34:14 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 20:52:38 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 20:52:38 - ERROR - financial_tracker - get_mstr_btc_holdings_from_web - An unexpected error occurred during pd.read_html processing: Missing optional dependency 'html5lib'.  Use pip or conda to install html5lib.
+Traceback (most recent call last):
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/pandas/compat/_optional.py", line 135, in import_optional_dependency
+    module = importlib.import_module(name)
+  File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1004, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'html5lib'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/financial_tracker.py", line 332, in get_mstr_btc_holdings_from_web
+    tables = pd.read_html(io.StringIO(response.text), match=match_regex)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/pandas/io/html.py", line 1240, in read_html
+    return _parse(
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/pandas/io/html.py", line 971, in _parse
+    parser = _parser_dispatch(flav)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/pandas/io/html.py", line 915, in _parser_dispatch
+    import_optional_dependency("html5lib")
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/pandas/compat/_optional.py", line 138, in import_optional_dependency
+    raise ImportError(msg)
+ImportError: Missing optional dependency 'html5lib'.  Use pip or conda to install html5lib.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Will attempt manual BeautifulSoup parsing due to pd.read_html error.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 20:52:38 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 20:52:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 20:52:38 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 20:52:39 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 20:52:39 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 20:52:39 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 20:52:39 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105672.45
+2025-06-08 20:52:39 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 20:52:40 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 20:52:40 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105672.45
+2025-06-08 20:52:40 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 20:52:40 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.3899322675605 (Holdings: 580955, BTC Price: 105672.45, Shares: 259702000.0)
+2025-06-08 20:52:40 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 20:52:40 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 20:52:40 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 20:52:40 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 20:52:40 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 20:52:40 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5995 (attempt 1)
+2025-06-08 20:52:40 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654 (attempt 1)
+2025-06-08 20:52:40 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 20:52:40 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 20:52:56 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 20:52:56 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 20:52:57 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 20:52:57 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 20:52:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 20:52:57 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 20:52:57 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 20:52:58 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 20:52:58 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 20:52:58 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105672.45
+2025-06-08 20:52:58 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 20:52:58 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 20:52:58 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105672.45
+2025-06-08 20:52:58 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 20:52:58 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.3899322675605 (Holdings: 580955, BTC Price: 105672.45, Shares: 259702000.0)
+2025-06-08 20:52:59 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 20:52:59 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 20:52:59 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 20:52:59 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 20:52:59 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 20:52:59 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5995 (attempt 1)
+2025-06-08 20:52:59 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654 (attempt 1)
+2025-06-08 20:52:59 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 20:52:59 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:19:38 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:19:38 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:19:38 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:19:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:19:38 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:19:39 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:19:39 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:19:39 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 23:19:39 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105468.47
+2025-06-08 23:19:40 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:19:40 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:19:40 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105468.47
+2025-06-08 23:19:40 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:19:40 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 235.9336277304372 (Holdings: 580955, BTC Price: 105468.47, Shares: 259702000.0)
+2025-06-08 23:19:40 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:19:40 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:19:40 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:19:40 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:19:40 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:19:40 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:19:40 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:19:40 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:19:40 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:19:51 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:19:51 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:19:51 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:19:51 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:19:51 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:19:58 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:19:58 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:19:58 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 23:19:59 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105468.47
+2025-06-08 23:19:59 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:19:59 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:19:59 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105468.47
+2025-06-08 23:19:59 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:19:59 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 235.9336277304372 (Holdings: 580955, BTC Price: 105468.47, Shares: 259702000.0)
+2025-06-08 23:19:59 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:19:59 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:19:59 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:19:59 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:19:59 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:19:59 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:19:59 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:19:59 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:19:59 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:29:26 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:29:26 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:29:26 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:29:27 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:29:27 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:29:27 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:29:27 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:29:27 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:29:27 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:29:28 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 23:29:28 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105552.41
+2025-06-08 23:29:28 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:29:28 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:29:28 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105552.41
+2025-06-08 23:29:28 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:29:28 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.12140203598742 (Holdings: 580955, BTC Price: 105552.41, Shares: 259702000.0)
+2025-06-08 23:29:28 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:29:28 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:29:28 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:29:29 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:29:29 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:29:29 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:29:29 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:29:29 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:29:29 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:36:32 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:36:32 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:36:33 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:36:33 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:36:33 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:36:33 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:36:34 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:36:34 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:36:34 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 23:36:34 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105581.86
+2025-06-08 23:36:34 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:36:34 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:36:34 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105581.86
+2025-06-08 23:36:35 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:36:35 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.1872818703745 (Holdings: 580955, BTC Price: 105581.86, Shares: 259702000.0)
+2025-06-08 23:36:35 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:36:35 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:36:35 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:36:35 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:36:35 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:36:35 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:36:35 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:36:35 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:36:35 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:37:45 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:37:45 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:37:46 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:37:46 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:37:46 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:37:46 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:37:46 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:37:47 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:37:47 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 23:37:47 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105581.86
+2025-06-08 23:37:47 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:37:47 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:37:47 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105581.86
+2025-06-08 23:37:47 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:37:47 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.1872818703745 (Holdings: 580955, BTC Price: 105581.86, Shares: 259702000.0)
+2025-06-08 23:37:47 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:37:47 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:37:47 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:37:48 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:37:48 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:37:48 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:37:48 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:37:48 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:37:48 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:38:31 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:38:31 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:38:31 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:38:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:38:31 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:38:32 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:38:32 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:38:32 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 23:38:32 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105584.68
+2025-06-08 23:38:32 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:38:32 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:38:32 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105584.68
+2025-06-08 23:38:33 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:38:33 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.19359022803056 (Holdings: 580955, BTC Price: 105584.68, Shares: 259702000.0)
+2025-06-08 23:38:33 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:38:33 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:38:33 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:38:33 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:38:33 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:38:33 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:38:33 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:38:33 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:38:33 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:38:53 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:38:53 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:38:54 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:38:54 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:38:54 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:38:54 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:38:54 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:38:54 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:38:55 - ERROR - financial_tracker - get_current_price - Error fetching current price for STRF: Failed to perform, curl: (23) Failure writing output to destination, passed 13 returned 0. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+Traceback (most recent call last):
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/curl_cffi/requests/session.py", line 631, in request
+    c.perform()
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/curl_cffi/curl.py", line 333, in perform
+    self._check_error(ret, "perform")
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/curl_cffi/curl.py", line 155, in _check_error
+    raise error
+curl_cffi.curl.CurlError: Failed to perform, curl: (23) Failure writing output to destination, passed 13 returned 0. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/financial_tracker.py", line 61, in get_current_price
+    info = ticker.info
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/ticker.py", line 163, in info
+    return self.get_info()
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/base.py", line 298, in get_info
+    data = self._quote.info
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/scrapers/quote.py", line 512, in info
+    self._fetch_complementary()
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/scrapers/quote.py", line 706, in _fetch_complementary
+    json_str = self._data.cache_get(url=url).text
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/data.py", line 30, in wrapped
+    return func(*args, **kwargs)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/data.py", line 428, in cache_get
+    return self.get(url, params, timeout)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/utils.py", line 92, in wrapper
+    result = func(*args, **kwargs)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/data.py", line 370, in get
+    return self._make_request(url, request_method = self._session.get, params=params, timeout=timeout)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/utils.py", line 92, in wrapper
+    result = func(*args, **kwargs)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/yfinance/data.py", line 406, in _make_request
+    response = request_method(**request_args)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/curl_cffi/requests/session.py", line 652, in get
+    return self.request(method="GET", url=url, **kwargs)
+  File "/Users/JustinRWong/Desktop/Projects/strategy-tracker/fmtenv/lib/python3.10/site-packages/curl_cffi/requests/session.py", line 638, in request
+    raise error(str(e), e.code, rsp) from e
+curl_cffi.requests.exceptions.RequestException: Failed to perform, curl: (23) Failure writing output to destination, passed 13 returned 0. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2025-06-08 23:38:55 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105584.68
+2025-06-08 23:38:55 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:38:55 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:38:55 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105584.68
+2025-06-08 23:38:55 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:38:55 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.19359022803056 (Holdings: 580955, BTC Price: 105584.68, Shares: 259702000.0)
+2025-06-08 23:38:55 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:38:55 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:38:55 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:38:56 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:38:56 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:38:56 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:38:56 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:38:56 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:38:56 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.
+2025-06-08 23:40:56 - INFO - financial_tracker - <module> - Main execution block started: Calling perform_daily_data_update.
+2025-06-08 23:40:56 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch data from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed CURRENT TOTAL BTC holdings: 580955
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to scrape 'Balance Sheet History' table using pd.read_html as first pass.
+2025-06-08 23:40:57 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - pd.read_html raised ValueError (no table found with match): No tables found matching pattern 'Date.*BTC Balance.*(Change|Change Cost Basis).*(Market Price|Market Value).*(Stock Price|Value per Share MSTR)'. Will attempt manual parsing.
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting manual parsing of 'Balance Sheet History' table using BeautifulSoup.
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found header for history table: 'Balance Sheet History'
+2025-06-08 23:40:57 - WARNING - financial_tracker - get_mstr_btc_holdings_from_web - Could not find table via header proximity. Searching all tables for specific headers.
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found 1 tables on page. Iterating to find the correct one...
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found plausible history table (candidate 0) by inspecting headers: ['', 'date', 'btc balance', 'change', 'cost basis', 'market price', 'stock price']
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found <table> element for Balance Sheet History via manual search.
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Parsed table headers from <thead>: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to parse 67 data rows from the table.
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Manual parsing created DataFrame with shape (67, 7)
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Proceeding with cleaning. Initial columns: ['', 'Date', 'BTC Balance', 'Change', 'Cost Basis', 'Market Price', 'Stock Price']
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempted renaming. Columns now: ['', 'Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Selected final columns for CSV: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR']
+2025-06-08 23:40:57 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully cleaned and saved 'Balance Sheet History' to mstr_balance_sheet_history.csv with 67 rows and columns: ['Date', 'BTC_Balance', 'BTC_Change', 'Total_Cost_Basis', 'Market_Price_BTC', 'Stock_Price_MSTR'].
+2025-06-08 23:40:57 - INFO - financial_tracker - perform_daily_data_update - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-08 23:40:58 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-08 23:40:58 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-08 23:40:58 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-08 23:40:58 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105623.24
+2025-06-08 23:40:58 - ERROR - quote - _fetch - HTTP Error 404: 
+2025-06-08 23:40:58 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:40:58 - WARNING - financial_tracker - perform_daily_data_update - High BTC-USD price detected: 105623.24
+2025-06-08 23:40:58 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-08 23:40:58 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.27984918945563 (Holdings: 580955, BTC Price: 105623.24, Shares: 259702000.0)
+2025-06-08 23:40:59 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:40:59 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:40:59 - INFO - financial_tracker - perform_daily_data_update - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:40:59 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 32 days out) for MSTR
+2025-06-08 23:40:59 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:40:59 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.0020 (attempt 1)
+2025-06-08 23:40:59 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.0000 (attempt 1)
+2025-06-08 23:40:59 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-08 23:40:59 - INFO - financial_tracker - <module> - perform_daily_data_update completed successfully.

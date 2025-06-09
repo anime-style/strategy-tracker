@@ -68,7 +68,9 @@ async def start_scheduler():
             scheduler.add_job(
                 fetch_and_save_kpi_data_job,
                 'interval',
-                hours=N_HOURLY_FETCH,
+#                hours=N_HOURLY_FETCH,
+                minutes=N_HOURLY_FETCH,
+#                seconds=5,
                 id="interval_kpi_fetch_job",
                 replace_existing=True
             )
