@@ -8,7 +8,7 @@ echo "Starting entrypoint script..."
 echo "Running financial_tracker.py to generate/update data..."
 python financial_tracker.py
 
-echo "Starting Dash application (app.py)..."
-# To make Dash accessible from outside the container, app.py should run with host='0.0.0.0'.
-# This command assumes app.py's app.run() is configured accordingly.
-python app.py
+echo "Starting FastAPI application (main.py) with Uvicorn..."
+# Uvicorn will serve the FastAPI app (app_fastapi from main.py),
+# which in turn mounts the Dash app.
+uvicorn main:app_fastapi --host 0.0.0.0 --port 8050

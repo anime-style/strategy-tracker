@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code into the container at /app
 COPY financial_tracker.py .
 COPY app.py .
+COPY main.py .
 COPY entrypoint.sh .
 
 # Make the entrypoint script executable
