@@ -43,6 +43,7 @@ except ImportError as e:
 
 # Import for APScheduler
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 try:
     from metrics_fetcher import fetch_and_save_kpi_data_job
     logging.info("Successfully imported fetch_and_save_kpi_data_job from metrics_fetcher.py for scheduling.")
@@ -61,37 +62,70 @@ app_fastapi = FastAPI(title="Financial Metrics API & Dashboard")
 # --- Scheduler Lifecycle Events ---
 @app_fastapi.on_event("startup")
 async def start_scheduler():
+    jobs_added = False # Flag to track if any job was actually added
+
+    # Existing job for fetch_and_save_kpi_data_job
     if N_HOURLY_FETCH > 0 and fetch_and_save_kpi_data_job is not None:
-        logging.info(f"Configuring and starting APScheduler to run job every {N_HOURLY_FETCH} hours.")
+        logging.info(f"Configuring APScheduler for KPI job every {N_HOURLY_FETCH} minutes.") # Corrected log to minutes if var is minutes
         try:
-            # Schedule the job to run at intervals
             scheduler.add_job(
                 fetch_and_save_kpi_data_job,
                 'interval',
-#                hours=N_HOURLY_FETCH,
-                minutes=N_HOURLY_FETCH,
-#                seconds=5,
+                minutes=N_HOURLY_FETCH, # Assuming N_HOURLY_FETCH is actually minutes based on usage
                 id="interval_kpi_fetch_job",
                 replace_existing=True
             )
-            # Schedule the job to run once shortly after startup
-            # This ensures data is fetched soon after deployment/restart
             scheduler.add_job(
                 fetch_and_save_kpi_data_job,
-                trigger='date', # Specifies a single run
-                run_date=datetime.now(timezone.utc) + timedelta(seconds=10), # Run 10 seconds from now
+                trigger='date',
+                run_date=datetime.now(timezone.utc) + timedelta(seconds=10),
                 id="startup_kpi_fetch_job",
                 replace_existing=True
             )
-            scheduler.start()
-            logging.info("APScheduler started successfully with KPI data fetch job.")
+            jobs_added = True
+            logging.info("KPI data fetch job successfully scheduled.")
         except Exception as e:
-            logging.exception(f"Error starting APScheduler or adding jobs: {e}")
+            logging.exception(f"Error adding KPI data fetch job: {e}")
     else:
         if fetch_and_save_kpi_data_job is None:
-            logging.warning("Scheduler not starting because fetch_and_save_kpi_data_job could not be imported.")
+            logging.warning("KPI job not scheduled because fetch_and_save_kpi_data_job could not be imported.")
         else:
-            logging.info(f"Scheduler not starting due to N_HOURLY_FETCH configuration (value: {N_HOURLY_FETCH}).")
+            logging.info(f"KPI job not scheduled due to N_HOURLY_FETCH configuration (value: {N_HOURLY_FETCH}).")
+
+    # New job for perform_daily_data_update
+    if perform_daily_data_update is not None:
+        logging.info("Configuring APScheduler for perform_daily_data_update job.")
+        try:
+            scheduler.add_job(
+                perform_daily_data_update,
+                CronTrigger(
+                    day_of_week='mon-fri',
+                    hour='6-13',
+                    minute='*/5',
+                    timezone='America/Los_Angeles'
+                ),
+                id="perform_daily_update_job",
+                name="Daily Financial Data Update", # Added name for clarity
+                replace_existing=True
+            )
+            jobs_added = True
+            logging.info("Successfully scheduled 'perform_daily_data_update' job (Mon-Fri, 6AM-1PM PST, every 5 mins).")
+        except Exception as e:
+            logging.exception(f"Error scheduling 'perform_daily_data_update' job: {e}")
+    else:
+        logging.warning("Skipping schedule of 'perform_daily_data_update' job as the function was not imported successfully.")
+
+    if jobs_added:
+        if not scheduler.running:
+            try:
+                scheduler.start()
+                logging.info("APScheduler started successfully.")
+            except Exception as e: # Catch potential errors like "scheduler is already running" if logic is complex
+                logging.exception(f"Failed to start APScheduler: {e}")
+        else:
+            logging.info("APScheduler already running.")
+    else:
+        logging.info("No jobs were added to the scheduler. APScheduler will not be started.")
 
 @app_fastapi.on_event("shutdown")
 async def shutdown_scheduler():
