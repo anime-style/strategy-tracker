@@ -182,36 +182,61 @@ def get_shares_outstanding(ticker_symbol: str) -> float | None:
         logging.error(f"Error fetching shares outstanding for {ticker_symbol}: {e}", exc_info=True)
         return None
 
-def calculate_mstr_mnav(btc_holdings: int, btc_price: float, mstr_shares_outstanding: float) -> float | None:
+def get_market_cap(ticker_symbol: str) -> float | None:
+    """
+    Fetches the market capitalization for a given equity ticker symbol using yfinance.
+
+    Args:
+        ticker_symbol (str): The stock ticker symbol (e.g., "MSTR").
+
+    Returns:
+        float | None: The market capitalization, or None if it cannot be determined or is invalid.
+    """
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        info = ticker.info
+        market_cap = info.get('marketCap')
+
+        if market_cap is not None and market_cap > 0:
+            logging.info(f"Successfully fetched market cap for {ticker_symbol}: {market_cap}")
+            return float(market_cap)
+        else:
+            logging.warning(f"Market cap for {ticker_symbol} is missing, None, zero, or negative. Value: {market_cap}. Info keys: {list(info.keys()) if isinstance(info, dict) else 'Info not a dict'}")
+            return None
+    except Exception as e:
+        logging.error(f"Error fetching market cap for {ticker_symbol}: {e}", exc_info=True)
+        return None
+
+def calculate_mstr_mnav(btc_holdings: int, btc_price: float, mstr_market_cap: float) -> float | None:
     """
     Calculates Microstrategy's Market Net Asset Value (MNAV) based on its Bitcoin holdings.
 
-    MNAV is calculated as: (Total BTC Holdings * Current BTC Price) / MSTR Shares Outstanding.
+    MNAV is calculated as: (Total BTC Holdings * Current BTC Price) / MSTR Market Cap.
 
     Args:
         btc_holdings (int): The total number of Bitcoins held by Microstrategy.
         btc_price (float): The current market price of one Bitcoin.
-        mstr_shares_outstanding (float): The number of Microstrategy's outstanding shares.
+        mstr_market_cap (float): The market capitalization of Microstrategy.
 
     Returns:
         float | None: The calculated MNAV per share, or None if any input is invalid or
-                      shares outstanding is zero.
+                      market cap is zero.
     """
     # Validate inputs
     if not all([isinstance(btc_holdings, (int, float)),
                 isinstance(btc_price, (int, float)),
-                isinstance(mstr_shares_outstanding, (int, float))]):
-        logging.error(f"Missing or invalid type for one or more inputs for MNAV calculation. btc_holdings: {btc_holdings} (type {type(btc_holdings)}), btc_price: {btc_price} (type {type(btc_price)}), mstr_shares: {mstr_shares_outstanding} (type {type(mstr_shares_outstanding)})")
+                isinstance(mstr_market_cap, (int, float))]):
+        logging.error(f"Missing or invalid type for one or more inputs for MNAV calculation. btc_holdings: {btc_holdings} (type {type(btc_holdings)}), btc_price: {btc_price} (type {type(btc_price)}), mstr_market_cap: {mstr_market_cap} (type {type(mstr_market_cap)})")
         return None
-    if mstr_shares_outstanding == 0:
-        logging.error("MSTR shares outstanding is zero, cannot calculate MNAV.")
+    if mstr_market_cap == 0:
+        logging.error("MSTR market cap is zero, cannot calculate MNAV.")
         return None
     if btc_holdings < 0 or btc_price < 0: # Basic sanity check
         logging.warning(f"Negative values provided for btc_holdings or btc_price: Holdings {btc_holdings}, Price {btc_price}")
         # Depending on strictness, one might return None here. For now, allow calculation.
 
-    mnav = (btc_holdings * btc_price) / mstr_shares_outstanding
-    logging.info(f"Successfully calculated MSTR MNAV: {mnav} (Holdings: {btc_holdings}, BTC Price: {btc_price}, Shares: {mstr_shares_outstanding})")
+    mnav = (btc_holdings * btc_price) / mstr_market_cap
+    logging.info(f"Successfully calculated MSTR MNAV: {mnav} (Holdings: {btc_holdings}, BTC Price: {btc_price}, Market Cap: {mstr_market_cap})")
     return mnav
 
 
@@ -522,7 +547,7 @@ def perform_daily_data_update() -> bool:
     # Initialize report_data dictionary to store all fetched/calculated values for the summary
     report_data = {
         'script_run_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'mstr_price': None, 'mstr_shares_outstanding': None,
+        'mstr_price': None, 'mstr_shares_outstanding': None, 'mstr_market_cap': None,
         'mstr_btc_holdings': None,
         'mstr_btc_holdings_source': None,
         'current_mnav': None, 'market_vs_mnav_percentage': None,
@@ -581,35 +606,33 @@ def perform_daily_data_update() -> bool:
     btc_current_price_for_calc = report_data['btc_price']
     mstr_shares_outstanding_val = get_shares_outstanding("MSTR")
     report_data['mstr_shares_outstanding'] = mstr_shares_outstanding_val
+    mstr_market_cap_val = get_market_cap("MSTR")
+    report_data['mstr_market_cap'] = mstr_market_cap_val
 
     current_mnav_val = None
-    if current_mstr_btc_holdings and btc_current_price_for_calc and mstr_shares_outstanding_val :
-        current_mnav_val = calculate_mstr_mnav(current_mstr_btc_holdings, btc_current_price_for_calc, mstr_shares_outstanding_val)
+    if current_mstr_btc_holdings and btc_current_price_for_calc and mstr_market_cap_val :
+        current_mnav_val = calculate_mstr_mnav(current_mstr_btc_holdings, btc_current_price_for_calc, mstr_market_cap_val)
         report_data['current_mnav'] = current_mnav_val
-        if mstr_current_price_for_calc and current_mnav_val and current_mnav_val > 0:
+        if mstr_current_price_for_calc and current_mnav_val and current_mnav_val > 0: # current_mnav_val could be zero if market_cap is huge
             report_data['market_vs_mnav_percentage'] = ((mstr_current_price_for_calc / current_mnav_val) - 1) * 100
     else:
-        logging.warning("Cannot calculate current MSTR MNAV due to missing critical data (BTC price, MSTR shares, or BTC holdings).")
+        logging.warning("Cannot calculate current MSTR MNAV due to missing critical data (BTC price, MSTR market cap, or BTC holdings).")
 
     # --- MSTR Historical MNAV Calculation ---
     avg_hist_mnav_val = None
-    if mstr_shares_outstanding_val is None:
-        logging.warning("MSTR shares outstanding is None before historical MNAV calculation. Attempting re-fetch.")
-        mstr_shares_outstanding_val = get_shares_outstanding("MSTR")
-        if mstr_shares_outstanding_val is not None:
-            report_data['mstr_shares_outstanding'] = mstr_shares_outstanding_val
-        else:
-            logging.error("Failed to re-fetch MSTR shares outstanding. Historical MNAV calculation will be impacted.")
+    # Note: mstr_shares_outstanding_val is kept for logging/display, but mstr_market_cap_val is used for MNAV.
+    # The re-fetch logic for shares outstanding is removed as market cap is the critical factor for MNAV now.
 
     mstr_hist_df = get_historical_data("MSTR", period="1y")
     btc_hist_df = get_historical_data("BTC-USD", period="1y")
 
     if mstr_hist_df is not None and not mstr_hist_df.empty and \
        btc_hist_df is not None and not btc_hist_df.empty and \
-       mstr_shares_outstanding_val is not None and mstr_shares_outstanding_val > 0:
+       mstr_market_cap_val is not None and mstr_market_cap_val > 0:
 
         if 'Close' in mstr_hist_df.columns and 'Close' in btc_hist_df.columns:
             try:
+                logging.warning("Using current MSTR market cap for historical MNAV calculations. For more precision, historical daily market cap would be required.")
                 mstr_hist_normalized = mstr_hist_df.copy()
                 mstr_hist_normalized.index = pd.to_datetime(mstr_hist_normalized.index, utc=True).normalize()
                 btc_hist_normalized = btc_hist_df.copy()
@@ -618,7 +641,7 @@ def perform_daily_data_update() -> bool:
                 merged_data_df = pd.merge(mstr_hist_normalized[['Close']], btc_hist_normalized[['Close']], left_index=True, right_index=True, suffixes=('_MSTR', '_BTC'))
 
                 if not merged_data_df.empty:
-                    merged_data_df['MNAV'] = (current_mstr_btc_holdings * merged_data_df['Close_BTC']) / mstr_shares_outstanding_val
+                    merged_data_df['MNAV'] = (current_mstr_btc_holdings * merged_data_df['Close_BTC']) / mstr_market_cap_val
 
                     historical_mnav_csv_filename = "mstr_historical_mnav.csv"
                     merged_data_df.to_csv(historical_mnav_csv_filename)
@@ -636,7 +659,7 @@ def perform_daily_data_update() -> bool:
         else:
             logging.warning("'Close' column missing in MSTR or BTC historical data; cannot calculate historical MNAV.")
     else:
-        logging.warning("Cannot calculate historical MNAV (missing MSTR/BTC historical data, or MSTR shares is zero/None).")
+        logging.warning("Cannot calculate historical MNAV (missing MSTR/BTC historical data, or MSTR market cap is zero/None).")
 
     # --- MSTR Implied Volatility Fetching ---
     if mstr_current_price_for_calc:
@@ -663,6 +686,7 @@ def perform_daily_data_update() -> bool:
         'STRF_Price': report_data['strf_price'],
         'BTC_Price': report_data['btc_price'],
         'MSTR_Shares_Outstanding': report_data['mstr_shares_outstanding'],
+        'MSTR_Market_Cap': report_data['mstr_market_cap'],
         'MSTR_BTC_Holdings': report_data['mstr_btc_holdings'],
         'MSTR_BTC_Holdings_Source': report_data['mstr_btc_holdings_source']
     }
@@ -683,7 +707,7 @@ def display_summary_report(summary_data: dict) -> None:
     Args:
         summary_data (dict): A dictionary containing the metrics to be displayed.
                              Expected keys include 'script_run_time', 'btc_price', 'mstr_price',
-                             'mstr_shares_outstanding', 'mstr_btc_holdings', 'current_mnav',
+                             'mstr_shares_outstanding', 'mstr_market_cap', 'mstr_btc_holdings', 'current_mnav',
                              'market_vs_mnav_percentage', 'avg_hist_mnav',
                              'current_mnav_vs_hist_avg_percentage', 'iv_data',
                              'strk_price', 'strf_price'.
@@ -714,6 +738,12 @@ def display_summary_report(summary_data: dict) -> None:
         print(f"Shares Outstanding: {mstr_shares:,.0f}")
     else:
         print(f"Shares Outstanding: {mstr_shares if mstr_shares is not None else 'N/A'}")
+
+    mstr_market_cap_disp = summary_data.get('mstr_market_cap')
+    if mstr_market_cap_disp is not None and isinstance(mstr_market_cap_disp, (int, float)):
+        print(f"Market Cap: ${mstr_market_cap_disp:,.0f}")
+    else:
+        print(f"Market Cap: {mstr_market_cap_disp if mstr_market_cap_disp is not None else 'N/A'}")
 
     mstr_btc_holdings_val = summary_data.get('mstr_btc_holdings', 'N/A')
     holdings_source = summary_data.get('mstr_btc_holdings_source', '')
@@ -807,7 +837,7 @@ def log_daily_metrics(metrics_data: dict) -> None:
         'Date', 'MSTR_Price', 'MSTR_MNAV',
         'MSTR_IV_Call_Strike', 'MSTR_IV_Call_IV', 'MSTR_IV_Put_Strike', 'MSTR_IV_Put_IV', 'MSTR_IV_Expiration',
         'STRK_Price', 'STRF_Price', 'BTC_Price',
-        'MSTR_Shares_Outstanding', 'MSTR_BTC_Holdings', 'MSTR_BTC_Holdings_Source'
+        'MSTR_Shares_Outstanding', 'MSTR_Market_Cap', 'MSTR_BTC_Holdings', 'MSTR_BTC_Holdings_Source'
     ]
 
     file_exists = os.path.exists(daily_log_file)
