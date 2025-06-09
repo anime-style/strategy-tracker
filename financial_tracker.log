@@ -12,3 +12,112 @@
 2025-06-08 23:57:20 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5906413006591797 (attempt 1)
 2025-06-08 23:57:20 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5570417831420901 (attempt 1)
 2025-06-08 23:57:20 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-09 00:10:18 - INFO - financial_tracker - <module> - Script execution started.
+2025-06-09 00:10:19 - ERROR - quote - _fetch - HTTP Error 404:
+2025-06-09 00:10:19 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-09 00:10:19 - WARNING - financial_tracker - <module> - High BTC-USD price detected: 105731.45
+2025-06-09 00:10:19 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000
+2025-06-09 00:10:19 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV.
+2025-06-09 00:10:19 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-09 00:10:20 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-09 00:10:20 - INFO - financial_tracker - <module> - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-09 00:10:20 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (30-60 days): 2025-07-11 for MSTR
+2025-06-09 00:10:20 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-09 00:10:20 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5994913098144532 (attempt 1)
+2025-06-09 00:10:20 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654340332031251 (attempt 1)
+2025-06-09 00:10:20 - INFO - financial_tracker - <module> - Attempting to fetch MSTR BTC holdings from web for testing.
+2025-06-09 00:10:20 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch BTC holdings from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:10:20 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:10:20 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-09 00:10:20 - ERROR - financial_tracker - get_mstr_btc_holdings_from_web - Could not find any element containing 'BTC balance' label on the page.
+2025-06-09 00:10:20 - WARNING - financial_tracker - <module> - Web scraping test: Failed to fetch MSTR BTC holdings from web.
+2025-06-09 00:10:20 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-09 00:11:19 - INFO - financial_tracker - <module> - Script execution started.
+2025-06-09 00:11:20 - ERROR - quote - _fetch - HTTP Error 404:
+2025-06-09 00:11:20 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-09 00:11:20 - WARNING - financial_tracker - <module> - High BTC-USD price detected: 105731.45
+2025-06-09 00:11:20 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000
+2025-06-09 00:11:20 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV.
+2025-06-09 00:11:20 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-09 00:11:21 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-09 00:11:21 - INFO - financial_tracker - <module> - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-09 00:11:21 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (30-60 days): 2025-07-11 for MSTR
+2025-06-09 00:11:21 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-09 00:11:21 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5994913098144532 (attempt 1)
+2025-06-09 00:11:21 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654340332031251 (attempt 1)
+2025-06-09 00:11:21 - INFO - financial_tracker - <module> - Attempting to fetch MSTR BTC holdings from web for testing.
+2025-06-09 00:11:21 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch BTC holdings from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:11:21 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:11:22 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-09 00:11:22 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-09 00:11:22 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed BTC holdings: 580955
+2025-06-09 00:11:22 - INFO - financial_tracker - <module> - Web scraping test successful: Fetched 580955 BTC.
+2025-06-09 00:11:22 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-09 00:12:31 - INFO - financial_tracker - <module> - Script execution started.
+2025-06-09 00:12:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch BTC holdings from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:12:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:12:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-09 00:12:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-09 00:12:31 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed BTC holdings: 580955
+2025-06-09 00:12:31 - INFO - financial_tracker - <module> - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-09 00:12:33 - ERROR - quote - _fetch - HTTP Error 404:
+2025-06-09 00:12:33 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-09 00:12:33 - WARNING - financial_tracker - <module> - High BTC-USD price detected: 105777.7
+2025-06-09 00:12:33 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000
+2025-06-09 00:12:33 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV.
+2025-06-09 00:12:33 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-09 00:12:33 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-09 00:12:33 - INFO - financial_tracker - <module> - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-09 00:12:33 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (30-60 days): 2025-07-11 for MSTR
+2025-06-09 00:12:33 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-09 00:12:33 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5994913098144532 (attempt 1)
+2025-06-09 00:12:33 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654340332031251 (attempt 1)
+2025-06-09 00:12:33 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-09 00:13:34 - INFO - financial_tracker - <module> - Script execution started.
+2025-06-09 00:13:34 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch BTC holdings from https://bitcointreasuries.net/entities/nonexistentpage
+2025-06-09 00:13:34 - ERROR - financial_tracker - get_mstr_btc_holdings_from_web - RequestException while fetching BTC holdings from https://bitcointreasuries.net/entities/nonexistentpage: 404 Client Error: Not Found for url: https://bitcointreasuries.net/entities/nonexistentpage
+Traceback (most recent call last):
+  File "/app/financial_tracker.py", line 140, in get_mstr_btc_holdings_from_web
+    response.raise_for_status() # Will raise an HTTPError for bad responses (4XX or 5XX)
+  File "/usr/local/lib/python3.10/dist-packages/requests/models.py", line 1024, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://bitcointreasuries.net/entities/nonexistentpage
+2025-06-09 00:13:34 - WARNING - financial_tracker - <module> - Failed to fetch dynamic BTC holdings or value was invalid (None). Using fallback placeholder: 205000
+2025-06-09 00:13:35 - ERROR - quote - _fetch - HTTP Error 404:
+2025-06-09 00:13:36 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-09 00:13:36 - WARNING - financial_tracker - <module> - High BTC-USD price detected: 105775.95
+2025-06-09 00:13:36 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000
+2025-06-09 00:13:36 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV.
+2025-06-09 00:13:36 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-09 00:13:36 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-09 00:13:36 - INFO - financial_tracker - <module> - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-09 00:13:36 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (30-60 days): 2025-07-11 for MSTR
+2025-06-09 00:13:36 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-09 00:13:36 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5994913098144532 (attempt 1)
+2025-06-09 00:13:36 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654340332031251 (attempt 1)
+2025-06-09 00:13:36 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-09 00:15:38 - INFO - financial_tracker - <module> - Script execution started.
+2025-06-09 00:15:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Attempting to fetch BTC holdings from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:15:38 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully fetched page content from https://bitcointreasuries.net/entities/microstrategy
+2025-06-09 00:15:39 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Specific div.label/div.value pattern not found or failed. Trying broader search for 'BTC balance' label.
+2025-06-09 00:15:39 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Found potential BTC balance using broader search near label 'BTC balance': 580,955
+2025-06-09 00:15:39 - INFO - financial_tracker - get_mstr_btc_holdings_from_web - Successfully parsed BTC holdings: 580955
+2025-06-09 00:15:39 - INFO - financial_tracker - <module> - Using dynamically fetched MSTR BTC holdings: 580955
+2025-06-09 00:15:39 - INFO - financial_tracker - get_current_price - Found price for MSTR using key 'currentPrice': 374.47
+2025-06-09 00:15:39 - INFO - financial_tracker - get_current_price - Found price for STRK using key 'currentPrice': 105.6
+2025-06-09 00:15:39 - INFO - financial_tracker - get_current_price - Found price for STRF using key 'currentPrice': 103.28
+2025-06-09 00:15:40 - INFO - financial_tracker - get_current_price - Found price for BTC-USD using key 'regularMarketPrice': 105781.99
+2025-06-09 00:15:40 - ERROR - quote - _fetch - HTTP Error 404:
+2025-06-09 00:15:40 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-09 00:15:40 - WARNING - financial_tracker - <module> - High BTC-USD price detected: 105781.99
+2025-06-09 00:15:40 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000.0
+2025-06-09 00:15:40 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV: 236.6349739333929 (Holdings: 580955, BTC Price: 105781.99, Shares: 259702000.0)
+2025-06-09 00:15:40 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-09 00:15:40 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-09 00:15:40 - INFO - financial_tracker - <module> - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-09 00:15:41 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (2025-07-11, 31 days out) for MSTR
+2025-06-09 00:15:41 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-09 00:15:41 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5995 (attempt 1)
+2025-06-09 00:15:41 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5654 (attempt 1)
+2025-06-09 00:15:41 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
+2025-06-09 00:15:41 - INFO - financial_tracker - <module> - Script execution finished.
