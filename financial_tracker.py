@@ -25,6 +25,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import io # For StringIO for pd.read_html
+import numpy as np
 
 # --- Setup Logging ---
 # Configures basic logging to file and console.
@@ -209,9 +210,9 @@ def get_market_cap(ticker_symbol: str) -> float | None:
 
 def calculate_mstr_mnav(btc_holdings: int, btc_price: float, mstr_market_cap: float) -> float | None:
     """
-    Calculates Microstrategy's Market Net Asset Value (MNAV) based on its Bitcoin holdings.
+    Calculates Microstrategy's Multiplied Net Asset Value (MNAV).
 
-    MNAV is calculated as: (Total BTC Holdings * Current BTC Price) / MSTR Market Cap.
+    MNAV is calculated as: MSTR Market Cap / (Total BTC Holdings * Current BTC Price).
 
     Args:
         btc_holdings (int): The total number of Bitcoins held by Microstrategy.
@@ -219,8 +220,8 @@ def calculate_mstr_mnav(btc_holdings: int, btc_price: float, mstr_market_cap: fl
         mstr_market_cap (float): The market capitalization of Microstrategy.
 
     Returns:
-        float | None: The calculated MNAV per share, or None if any input is invalid or
-                      market cap is zero.
+        float | None: The calculated MNAV (ratio), or None if inputs are invalid or
+                      the denominator (BTC value) is zero.
     """
     # Validate inputs
     if not all([isinstance(btc_holdings, (int, float)),
@@ -228,15 +229,24 @@ def calculate_mstr_mnav(btc_holdings: int, btc_price: float, mstr_market_cap: fl
                 isinstance(mstr_market_cap, (int, float))]):
         logging.error(f"Missing or invalid type for one or more inputs for MNAV calculation. btc_holdings: {btc_holdings} (type {type(btc_holdings)}), btc_price: {btc_price} (type {type(btc_price)}), mstr_market_cap: {mstr_market_cap} (type {type(mstr_market_cap)})")
         return None
-    if mstr_market_cap == 0:
-        logging.error("MSTR market cap is zero, cannot calculate MNAV.")
-        return None
-    if btc_holdings < 0 or btc_price < 0: # Basic sanity check
-        logging.warning(f"Negative values provided for btc_holdings or btc_price: Holdings {btc_holdings}, Price {btc_price}")
-        # Depending on strictness, one might return None here. For now, allow calculation.
 
-    mnav = (btc_holdings * btc_price) / mstr_market_cap
-    logging.info(f"Successfully calculated MSTR MNAV: {mnav} (Holdings: {btc_holdings}, BTC Price: {btc_price}, Market Cap: {mstr_market_cap})")
+    if btc_holdings < 0 or btc_price < 0: # Basic sanity check for negative inputs
+        logging.warning(f"Negative values provided for btc_holdings or btc_price: Holdings {btc_holdings}, Price {btc_price}. MNAV calculation will proceed if values are non-zero.")
+        # Allow calculation to proceed if values are non-zero, as negative BTC value might be a scenario to observe if not strictly an error.
+        # If strict positivity is required for holdings/price, additional checks can be added here.
+
+    btc_total_value = btc_holdings * btc_price
+
+    if btc_total_value == 0:
+        logging.error(f"BTC total value is zero (Holdings: {btc_holdings}, Price: {btc_price}), cannot calculate MNAV ratio.")
+        return None
+
+    # The check for mstr_market_cap == 0 is implicitly handled:
+    # If mstr_market_cap is 0, mnav will be 0. This is a valid mathematical outcome.
+    # If it were a required positive value, a check similar to btc_total_value would be here.
+
+    mnav = mstr_market_cap / btc_total_value
+    logging.info(f"Successfully calculated MSTR MNAV ratio: {mnav:.4f} (Market Cap: {mstr_market_cap}, BTC Holdings: {btc_holdings}, BTC Price: {btc_price}, Total BTC Value: {btc_total_value})")
     return mnav
 
 
@@ -641,7 +651,30 @@ def perform_daily_data_update() -> bool:
                 merged_data_df = pd.merge(mstr_hist_normalized[['Close']], btc_hist_normalized[['Close']], left_index=True, right_index=True, suffixes=('_MSTR', '_BTC'))
 
                 if not merged_data_df.empty:
-                    merged_data_df['MNAV'] = (current_mstr_btc_holdings * merged_data_df['Close_BTC']) / mstr_market_cap_val
+                    # Calculate the denominator for historical MNAV
+                    # Ensure current_mstr_btc_holdings is not None and is positive, otherwise denominator could be zero or invalid
+                    if current_mstr_btc_holdings is not None and current_mstr_btc_holdings > 0:
+                        merged_data_df['MNAV_BTC_Value_Denominator'] = current_mstr_btc_holdings * merged_data_df['Close_BTC']
+                    else:
+                        merged_data_df['MNAV_BTC_Value_Denominator'] = np.nan # Avoids issues if holdings are invalid
+                        logging.warning("Current MSTR BTC holdings are zero, None, or invalid for historical MNAV denominator calculation.")
+
+                    # Calculate historical MNAV ratio
+                    # Ensure mstr_market_cap_val is not None before this calculation
+                    if mstr_market_cap_val is not None and mstr_market_cap_val > 0:
+                        # Denominator can still be zero if historical BTC price ('Close_BTC') was zero
+                        merged_data_df['MNAV'] = mstr_market_cap_val / merged_data_df['MNAV_BTC_Value_Denominator']
+
+                        # Handle potential division by zero if MNAV_BTC_Value_Denominator is 0
+                        merged_data_df['MNAV'].replace([float('inf'), -float('inf')], np.nan, inplace=True)
+                        logging.info("Calculated historical MNAV ratio. Note: 'inf' or 'NaN' may appear if historical BTC price was zero or holdings were invalid.")
+                    else:
+                        merged_data_df['MNAV'] = np.nan
+                        logging.warning("MSTR market cap is missing or invalid, cannot calculate historical MNAV ratio.")
+
+                    # Clean up the temporary denominator column if it exists
+                    if 'MNAV_BTC_Value_Denominator' in merged_data_df.columns:
+                        merged_data_df.drop(columns=['MNAV_BTC_Value_Denominator'], inplace=True)
 
                     historical_mnav_csv_filename = "mstr_historical_mnav.csv"
                     merged_data_df.to_csv(historical_mnav_csv_filename)
@@ -757,25 +790,27 @@ def display_summary_report(summary_data: dict) -> None:
     # MNAV
     current_mnav = summary_data.get('current_mnav')
     if current_mnav is not None and isinstance(current_mnav, (int, float)):
-        print(f"Estimated Current MNAV: ${current_mnav:,.2f}")
+        print(f"MSTR Multiplied NAV (Market Cap / BTC Value): {current_mnav:,.2f}")
         market_vs_mnav = summary_data.get('market_vs_mnav_percentage')
         if market_vs_mnav is not None and isinstance(market_vs_mnav, (int, float)):
-            print(f"  Market vs MNAV: {market_vs_mnav:+.2f}%") # Note: :+ includes sign for positive/negative
+            # The interpretation of this percentage changes with MNAV being a ratio.
+            # Label is kept generic; user can decide if this metric is still useful.
+            print(f"  Stock Price vs MNAV-Implied Price: {market_vs_mnav:+.2f}%")
         else:
-            print(f"  Market vs MNAV: {market_vs_mnav if market_vs_mnav is not None else 'N/A'}")
+            print(f"  Stock Price vs MNAV-Implied Price: {market_vs_mnav if market_vs_mnav is not None else 'N/A'}")
     else:
-        print(f"Estimated Current MNAV: {current_mnav if current_mnav is not None else 'N/A'}")
+        print(f"MSTR Multiplied NAV (Market Cap / BTC Value): {current_mnav if current_mnav is not None else 'N/A'}")
 
     avg_hist_mnav = summary_data.get('avg_hist_mnav')
     if avg_hist_mnav is not None and isinstance(avg_hist_mnav, (int, float)):
-        print(f"Average Historical MNAV (1yr): ${avg_hist_mnav:,.2f}")
+        print(f"Average Historical Multiplied NAV (1yr): {avg_hist_mnav:,.2f}")
         curr_vs_hist_mnav = summary_data.get('current_mnav_vs_hist_avg_percentage')
         if curr_vs_hist_mnav is not None and isinstance(curr_vs_hist_mnav, (int, float)):
-            print(f"  Current MNAV vs Hist. Avg: {curr_vs_hist_mnav:+.2f}%")
+            print(f"  Current Multiplied NAV vs Hist. Avg: {curr_vs_hist_mnav:+.2f}%")
         else:
-            print(f"  Current MNAV vs Hist. Avg: {curr_vs_hist_mnav if curr_vs_hist_mnav is not None else 'N/A'}")
+            print(f"  Current Multiplied NAV vs Hist. Avg: {curr_vs_hist_mnav if curr_vs_hist_mnav is not None else 'N/A'}")
     else:
-        print(f"Average Historical MNAV (1yr): {avg_hist_mnav if avg_hist_mnav is not None else 'N/A'}")
+        print(f"Average Historical Multiplied NAV (1yr): {avg_hist_mnav if avg_hist_mnav is not None else 'N/A'}")
 
     # Implied Volatility
     iv_data = summary_data.get('iv_data')
