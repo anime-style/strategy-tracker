@@ -1,0 +1,14 @@
+2025-06-08 23:57:18 - INFO - financial_tracker - <module> - Script execution started.
+2025-06-08 23:57:19 - ERROR - quote - _fetch - HTTP Error 404:
+2025-06-08 23:57:19 - ERROR - financial_tracker - get_current_price - Limited information available for INVALIDTICKERXYZ. It might be delisted, an invalid ticker, or data is temporarily unavailable.
+2025-06-08 23:57:19 - WARNING - financial_tracker - <module> - High BTC-USD price detected: 105730.29
+2025-06-08 23:57:19 - INFO - financial_tracker - get_shares_outstanding - Found shares for MSTR using key 'sharesOutstanding': 259702000
+2025-06-08 23:57:19 - INFO - financial_tracker - calculate_mstr_mnav - Successfully calculated MSTR MNAV.
+2025-06-08 23:57:19 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for MSTR for period 1y.
+2025-06-08 23:57:20 - INFO - financial_tracker - get_historical_data - Successfully fetched historical data for BTC-USD for period 1y.
+2025-06-08 23:57:20 - INFO - financial_tracker - <module> - Saved historical MNAV data to mstr_historical_mnav.csv
+2025-06-08 23:57:20 - INFO - financial_tracker - get_near_atm_iv - Selected target expiration date (30-60 days): 2025-07-11 for MSTR
+2025-06-08 23:57:20 - INFO - financial_tracker - get_near_atm_iv - Fetching options chain for MSTR with expiration: 2025-07-11
+2025-06-08 23:57:20 - INFO - financial_tracker - get_near_atm_iv - Selected ATM call for MSTR on 2025-07-11: Strike 375.0, IV 0.5906413006591797 (attempt 1)
+2025-06-08 23:57:20 - INFO - financial_tracker - get_near_atm_iv - Selected ATM put for MSTR on 2025-07-11: Strike 375.0, IV 0.5570417831420901 (attempt 1)
+2025-06-08 23:57:20 - INFO - financial_tracker - log_daily_metrics - Successfully logged current metrics to daily_metrics_log.csv
